@@ -759,12 +759,15 @@ vk::SampleCountFlagBits KitsuneEngine::get_max_usable_sample_count(const vk::rai
 std::vector<char> KitsuneEngine::readFile(const std::string& filename) const {
 
     // Get the base path of the executable
-    const char* basePath = SDL_GetBasePath();
-    if (!basePath) {
-        throw SDLException("Failed to get base path");
+    const char* rawBasePath = SDL_GetBasePath();
+    std::string fullPath;
+    if (rawBasePath) {
+        fullPath = std::string(rawBasePath) + filename;
     }
-    std::string fullPath = std::string(basePath) + filename;
-
+    else {
+        fmt::println("Warning: SDL_GetBasePath failed, using relative path");
+        fullPath = "./" + filename; // Fallback
+    }
     std::ifstream file(fullPath, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error(fmt::format("Failed to open file: {}", fullPath));
