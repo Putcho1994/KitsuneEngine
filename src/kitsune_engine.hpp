@@ -101,23 +101,23 @@ private:
     void handleEvent(const SDL_Event* event);
 
     void init_vulkan();
-    void create_instance();
-    void create_surface();
-    void pick_physical_device();
-    void create_device();
-    void create_command_pool();
-    void create_swapchain();
+    void createInstance();
+    void createSurface();
+    void pickPhysicalDevice();
+    void createDevice();
+    void createCommandPool();
+    void createSwapchain();
     void createImageViews();
     void createDepthResources();
     void createColorResources();
-    void create_frame_resources();
-    void create_render_pass();
-    void create_framebuffers();
+    void createFrameResources();
+    void createRenderPass();
+    void createFramebuffers();
     void createSyncObjects();
     void recreate_swapchain();
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, std::optional < vk::raii::Image>& image, std::optional < vk::raii::DeviceMemory>& imageMemory);
-    void createImageView(vk::raii::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, std::optional<vk::raii::ImageView>& imageView);
     
+    void createCommandBuffers();
+
     void createGraphicsPipeline(); // New: Pipeline setup
     void recordCommandBuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex); // New: Record draw commands
 
@@ -132,8 +132,11 @@ private:
         find_graphics_and_present_queue_family_index(const vk::raii::PhysicalDevice& physicalDevice);
     bool check_device_extensions_support(const vk::raii::PhysicalDevice& device);
     std::pair<std::optional<uint32_t>, std::optional<uint32_t>> is_device_full_support(const vk::raii::PhysicalDevice& device);
+    
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, std::optional < vk::raii::Image>& image, std::optional < vk::raii::DeviceMemory>& imageMemory);
+    void createImageView(vk::raii::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, std::optional<vk::raii::ImageView>& imageView);
     vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
     vk::SampleCountFlagBits get_max_usable_sample_count(const vk::raii::PhysicalDevice& device) const;
-    vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const;
-    std::vector<char> readFile(const std::string& filename); // New: Load SPIR-V
+    vk::raii::ShaderModule createShaderModule(const std::string& filename) const;
+    std::vector<char> readFile(const std::string& filename) const; // New: Load SPIR-V
 };

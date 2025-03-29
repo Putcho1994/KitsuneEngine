@@ -27,9 +27,6 @@ void KitsuneEngine::init() {
 
     init_vulkan();
 
-
-
-
     _isInitialized = true;
 }
 
@@ -78,21 +75,21 @@ void KitsuneEngine::run() {
 void KitsuneEngine::draw() {}
 
 void KitsuneEngine::init_vulkan() {
-    create_instance();
-    create_surface();
-    pick_physical_device();
-    create_device();
-    create_command_pool();
-    create_swapchain();
-    create_frame_resources();
-    create_render_pass();
-    create_framebuffers();
+    createInstance();
+    createSurface();
+    pickPhysicalDevice();
+    createDevice();
+    createCommandPool();
+    createSwapchain();
+    createFrameResources();
+    createRenderPass();
+    createFramebuffers();
     createSyncObjects();
-    //create_command_buffers();
     createGraphicsPipeline();
+    createCommandBuffers();
 }
 
-void KitsuneEngine::create_instance() {
+void KitsuneEngine::createInstance() {
     vk::ApplicationInfo applicationInfo{};
     applicationInfo.setPApplicationName(ENGINE_NAME)
         .setApplicationVersion(ENGINE_VERSION)
@@ -113,14 +110,14 @@ void KitsuneEngine::create_instance() {
     instance.emplace(*context, createInfo);
 }
 
-void KitsuneEngine::create_surface() {
+void KitsuneEngine::createSurface() {
     VkSurfaceKHR rawSurface;
     if (!SDL_Vulkan_CreateSurface(window.get(), **instance, nullptr, &rawSurface))
         throw SDLException("Failed to create surface");
     surface.emplace(*instance, rawSurface);
 }
 
-void KitsuneEngine::pick_physical_device() {
+void KitsuneEngine::pickPhysicalDevice() {
     auto devices = instance->enumeratePhysicalDevices();
     for (const auto& device : devices) {
         auto [graphicsIndex, presentIndex] = is_device_full_support(device);
@@ -139,7 +136,7 @@ void KitsuneEngine::pick_physical_device() {
     fmt::println("{}", deviceName);
 }
 
-void KitsuneEngine::create_device() {
+void KitsuneEngine::createDevice() {
     if (!physicalDevice || !deviceIndices.first || !deviceIndices.second)
         throw std::runtime_error("Cannot create device: No physical device or queue indices");
 
@@ -180,7 +177,7 @@ void KitsuneEngine::create_device() {
         *deviceIndices.first, *deviceIndices.second);
 }
 
-void KitsuneEngine::create_command_pool() {
+void KitsuneEngine::createCommandPool() {
 
 
     vk::CommandPoolCreateInfo poolInfo{};
@@ -191,7 +188,7 @@ void KitsuneEngine::create_command_pool() {
     fmt::println("Command pool created for graphics queue family: {}", *deviceIndices.first);
 }
 
-void KitsuneEngine::create_swapchain() {
+void KitsuneEngine::createSwapchain() {
 
 
     // Get surface capabilities, formats, and present modes
@@ -286,14 +283,14 @@ void KitsuneEngine::createColorResources()
     createImageView(*colorImage, colorFormat, vk::ImageAspectFlagBits::eColor, 1, colorImageView);
 }
 
-void KitsuneEngine::create_frame_resources() 
+void KitsuneEngine::createFrameResources() 
 {
     createImageViews();
     createDepthResources();
     createColorResources();
 }
 
-void KitsuneEngine::create_render_pass() {
+void KitsuneEngine::createRenderPass() {
 
     vk::SampleCountFlagBits msaaSamples = get_msaa_samples();
 
@@ -367,7 +364,7 @@ void KitsuneEngine::create_render_pass() {
         vk::to_string(swapChainImageFormat), vk::to_string(depthFormat), vk::to_string(swapChainImageFormat));
 }
 
-void KitsuneEngine::create_framebuffers() {
+void KitsuneEngine::createFramebuffers() {
 
 
     uint32_t imageCount = get_image_count();
@@ -472,11 +469,8 @@ void KitsuneEngine::recreate_swapchain()
 }
 
 void KitsuneEngine::createGraphicsPipeline() {
-    auto vertCode = readFile("shaders/shader.vert.spv");
-    auto fragCode = readFile("shaders/shader.frag.spv");
-
-    vertShaderModule = createShaderModule(vertCode);
-    fragShaderModule = createShaderModule(fragCode);
+    vertShaderModule = createShaderModule("shaders/shader.vert.spv");
+    fragShaderModule = createShaderModule("shaders/shader.frag.spv");
 
     vk::PipelineShaderStageCreateInfo vertStage{};
     vertStage.setStage(vk::ShaderStageFlagBits::eVertex)
@@ -498,9 +492,23 @@ void KitsuneEngine::createGraphicsPipeline() {
     inputAssembly.setTopology(vk::PrimitiveTopology::eTriangleList)
         .setPrimitiveRestartEnable(false);
 
+    vk::Viewport viewPort{};
+    viewPort.setX(0)
+        .setY(0)
+        .setWidth((float)swapChainExtent.width)
+        .setHeight((float)swapChainExtent.height)
+        .setMinDepth(0.0f)
+        .setMaxDepth(1.0f);
+
+    vk::Rect2D scissor{};
+    scissor.setOffset({ 0,0 })
+        .setExtent(swapChainExtent);
+
     vk::PipelineViewportStateCreateInfo viewportState{};
     viewportState.setViewportCount(1)
-        .setScissorCount(1);
+        .setScissorCount(1)
+        .setPViewports(&viewPort)
+        .setPScissors(&scissor);
 
     vk::PipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.setDepthClampEnable(false)
@@ -554,6 +562,18 @@ void KitsuneEngine::createGraphicsPipeline() {
 
     graphicsPipeline = device->createGraphicsPipeline(nullptr, pipelineInfo);
     fmt::println("Graphics pipeline created");
+}
+
+void KitsuneEngine::createCommandBuffers()
+{
+    vk::CommandBufferAllocateInfo allocInfo{};
+    allocInfo.setCommandPool(*commandPool)
+        .setLevel(vk::CommandBufferLevel::ePrimary)
+        .setCommandBufferCount(MAX_FRAMES_IN_FLIGHT);
+
+    commandBuffers = device->allocateCommandBuffers(allocInfo);
+
+    fmt::println("{} commandBuffer is allocated", static_cast<uint32_t>(commandBuffers.size()));
 }
 
 vk::Extent2D KitsuneEngine::get_window_extents() const {
@@ -734,16 +754,9 @@ vk::SampleCountFlagBits KitsuneEngine::get_max_usable_sample_count(const vk::rai
     return vk::SampleCountFlagBits::e1;
 }
 
-vk::raii::ShaderModule KitsuneEngine::createShaderModule(const std::vector<char>& code) const
-{
-    vk::ShaderModuleCreateInfo createInfo{}; createInfo
-        .setCodeSize(code.size())
-        .setPCode(reinterpret_cast<const uint32_t*>(code.data()));
-    
-    return device->createShaderModule(createInfo);
-}
 
-std::vector<char> KitsuneEngine::readFile(const std::string& filename) {
+
+std::vector<char> KitsuneEngine::readFile(const std::string& filename) const {
 
     // Get the base path of the executable
     const char* basePath = SDL_GetBasePath();
@@ -751,8 +764,6 @@ std::vector<char> KitsuneEngine::readFile(const std::string& filename) {
         throw SDLException("Failed to get base path");
     }
     std::string fullPath = std::string(basePath) + filename;
-
-    fmt::println("Loaded file: {}", fullPath);
 
     std::ifstream file(fullPath, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
@@ -765,5 +776,16 @@ std::vector<char> KitsuneEngine::readFile(const std::string& filename) {
     file.close();
 
     return buffer;
+}
+
+vk::raii::ShaderModule KitsuneEngine::createShaderModule(const std::string& filename) const
+{
+    auto sourceCode = readFile(filename);
+
+    vk::ShaderModuleCreateInfo createInfo{}; createInfo
+        .setCodeSize(sourceCode.size())
+        .setPCode(reinterpret_cast<const uint32_t*>(sourceCode.data()));
+
+    return device->createShaderModule(createInfo);
 }
 
