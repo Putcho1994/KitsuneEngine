@@ -13,7 +13,7 @@ class KitsuneEngine {
     static inline constexpr uint32_t API_VERSION = VK_API_VERSION_1_4;
     static inline constexpr std::array<const char* const, 2> REQUIRED_EXTENSIONS = { vk::KHRSwapchainExtensionName, vk::KHRSynchronization2ExtensionName };
     static inline constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-
+   
 public:
     KitsuneEngine() = default;
     ~KitsuneEngine() = default;
@@ -58,7 +58,7 @@ private:
     bool vsync{ true };
     bool setDefaulWinSize{ true };
     bool framebufferResized{ false };    // New: Tracks if framebuffer needs recreation
-    std::pair<vk::Result, uint32_t> currentImageIndex{ vk::Result::eSuccess, 0 };     // New: Current swapchain image index
+    int currentImageIndex{ 0 };     // New: Current swapchain image index
     int currentFrameIndex{ 0 };          // New: Current frame-in-flight index
     bool isFrameStarted{ false };        // New: Tracks if frame is in progress
 
@@ -96,8 +96,9 @@ private:
     std::optional<vk::raii::ShaderModule> fragShaderModule{};
     std::optional<vk::raii::PipelineLayout> pipelineLayout{};
     std::optional<vk::raii::Pipeline> graphicsPipeline{};
+    std::string applicationPath;
 
-    void draw();
+    void drawFrame();
     void handleEvent(const SDL_Event* event);
 
     void init_vulkan();
@@ -115,11 +116,13 @@ private:
     void createFramebuffers();
     void createSyncObjects();
     void recreate_swapchain();
+    void cleanupSwapChain();
+    void cleanupFrameResources();
     
     void createCommandBuffers();
 
     void createGraphicsPipeline(); // New: Pipeline setup
-    void recordCommandBuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex); // New: Record draw commands
+    
 
     vk::Extent2D get_window_extents() const;
     vk::Extent2D get_monitor_extents() const; // New helper for monitor size

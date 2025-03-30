@@ -1,4 +1,4 @@
-#include <kitsune_engine.hpp>
+﻿#include <kitsune_engine.hpp>
 #include <kitsune_types.h>
 
 void KitsuneEngine::init() {
@@ -19,6 +19,9 @@ void KitsuneEngine::init() {
 
     SDL_SetWindowMinimumSize(window.get(), 100, 100);
     SDL_SetWindowPosition(window.get(), 1, 31);
+
+    applicationPath = SDL_GetBasePath();
+    fmt::print("{}", applicationPath);
 
     auto vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr());
     if (!vkGetInstanceProcAddr)
@@ -42,18 +45,18 @@ void KitsuneEngine::handleEvent(const SDL_Event* event) {
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         _windowExtent = get_window_extents();
         fmt::println("Window extent resized to: {}x{}", _windowExtent.width, _windowExtent.height);
+        recreate_swapchain();
         break;
     case SDL_EVENT_WINDOW_MINIMIZED:
         fmt::println("Window minimized: {}x{}", _windowExtent.width, _windowExtent.height);
         break;
     case SDL_EVENT_WINDOW_MAXIMIZED:
         fmt::println("Window maximized: {}x{}", _windowExtent.width, _windowExtent.height);
-
+        recreate_swapchain();
         break;
     case SDL_EVENT_WINDOW_RESTORED:
         fmt::println("Window restored: {}x{}", _windowExtent.width, _windowExtent.height);
-
-
+        recreate_swapchain();
         break;
     }
 }
@@ -67,12 +70,84 @@ void KitsuneEngine::run() {
         while (SDL_PollEvent(&event)) {
             handleEvent(&event);
         }
-
-        draw();
+        if (_windowExtent.width > 0 && _windowExtent.height > 0) { // Skip drawing if minimized
+            drawFrame();
+        }
     }
+
+    device->waitIdle();
 }
 
-void KitsuneEngine::draw() {}
+void KitsuneEngine::drawFrame() 
+{
+    vk::Fence const fence{ *inFlightFences[currentFrameIndex] };
+    auto result = device->waitForFences(fence, VK_TRUE, UINT64_MAX);
+    
+
+    auto [acquireResult, imageIndex] = swapChain->acquireNextImage(UINT16_MAX, imageAvailableSemaphores[currentFrameIndex], nullptr);
+    currentImageIndex = imageIndex;
+
+    if (acquireResult == vk::Result::eErrorOutOfDateKHR)
+    {
+        recreate_swapchain();
+    }
+    else if (acquireResult != vk::Result::eSuccess && acquireResult != vk::Result::eSuboptimalKHR)
+    {
+        throw std::runtime_error("failed to acquire swap chain image!");
+    }
+
+    device->resetFences(fence);
+
+    vk::raii::CommandBuffer const& commandBuffer{ commandBuffers[currentFrameIndex] };
+    commandBuffer.reset();
+
+    vk::CommandBufferBeginInfo beginInfo{};
+    commandBuffer.begin(beginInfo);
+
+    std::array<vk::ClearValue, 2> clearValues;
+    clearValues[0].color = vk::ClearColorValue(0.2f, 0.2f, 0.2f, 0.2f);
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+
+    vk::RenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.setRenderPass(*renderPass)
+        .setFramebuffer(framebuffers[imageIndex])
+        .setClearValueCount(static_cast<uint32_t>(clearValues.size()))
+        .setPClearValues(clearValues.data())
+        .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
+        
+    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+    commandBuffer.setViewport(
+        0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
+    commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
+    commandBuffer.draw(3, 1, 0, 0);
+    commandBuffer.endRenderPass();
+    commandBuffer.end();
+
+    vk::SubmitInfo submitInfo{};
+    vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    submitInfo.setCommandBuffers(*commandBuffer)
+        .setWaitSemaphores(*imageAvailableSemaphores[currentFrameIndex])
+        .setSignalSemaphores(*renderFinishedSemaphores[currentFrameIndex])
+        .setWaitDstStageMask(waitDestinationStageMask);
+
+    graphicsQueue->submit(submitInfo, fence);
+
+    vk::PresentInfoKHR presentInfo{};
+    presentInfo.setSwapchains(**swapChain)
+        .setImageIndices(imageIndex)
+        .setWaitSemaphores(*renderFinishedSemaphores[currentFrameIndex]);
+
+    vk::Result presentResult = presentQueue->presentKHR(presentInfo);
+    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
+        fmt::println("Swapchain out of date—recreation needed");
+    }
+    else if (presentResult != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to present swapchain image");
+    }
+
+    currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+}
 
 void KitsuneEngine::init_vulkan() {
     createInstance();
@@ -290,6 +365,19 @@ void KitsuneEngine::createFrameResources()
     createColorResources();
 }
 
+void KitsuneEngine::cleanupFrameResources()
+{
+    colorImageView.reset();
+    colorImageMemory.reset();
+    colorImage.reset();
+
+    depthImageView.reset();
+    depthImageMemory.reset();
+    depthImage.reset();
+
+    swapchainImageViews.clear();
+}
+
 void KitsuneEngine::createRenderPass() {
 
     vk::SampleCountFlagBits msaaSamples = get_msaa_samples();
@@ -465,7 +553,30 @@ void KitsuneEngine::createSyncObjects()
 
 void KitsuneEngine::recreate_swapchain()
 {
+    fmt::println("recreate swapchain is trigger");
 
+    device->waitIdle();
+
+    // Update window extent
+    _windowExtent = get_window_extents();
+    if (_windowExtent.width == 0 || _windowExtent.height == 0) {
+        return; // Window minimized, skip recreation
+    }
+
+    
+
+    cleanupSwapChain();
+
+    createSwapchain();
+    createFrameResources();
+    createFramebuffers();
+}
+
+void KitsuneEngine::cleanupSwapChain()
+{
+    framebuffers.clear();
+    cleanupFrameResources();
+    swapChain.reset();
 }
 
 void KitsuneEngine::createGraphicsPipeline() {
@@ -492,23 +603,13 @@ void KitsuneEngine::createGraphicsPipeline() {
     inputAssembly.setTopology(vk::PrimitiveTopology::eTriangleList)
         .setPrimitiveRestartEnable(false);
 
-    vk::Viewport viewPort{};
-    viewPort.setX(0)
-        .setY(0)
-        .setWidth((float)swapChainExtent.width)
-        .setHeight((float)swapChainExtent.height)
-        .setMinDepth(0.0f)
-        .setMaxDepth(1.0f);
 
-    vk::Rect2D scissor{};
-    scissor.setOffset({ 0,0 })
-        .setExtent(swapChainExtent);
 
     vk::PipelineViewportStateCreateInfo viewportState{};
     viewportState.setViewportCount(1)
         .setScissorCount(1)
-        .setPViewports(&viewPort)
-        .setPScissors(&scissor);
+        .setPViewports(nullptr)
+        .setPScissors(nullptr);
 
     vk::PipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.setDepthClampEnable(false)
@@ -754,20 +855,10 @@ vk::SampleCountFlagBits KitsuneEngine::get_max_usable_sample_count(const vk::rai
     return vk::SampleCountFlagBits::e1;
 }
 
+std::vector<char> KitsuneEngine::readFile(const std::string& filename) const 
+{
+    std::string fullPath = fmt::format("{}{}", applicationPath, filename);
 
-
-std::vector<char> KitsuneEngine::readFile(const std::string& filename) const {
-
-    // Get the base path of the executable
-    const char* rawBasePath = SDL_GetBasePath();
-    std::string fullPath;
-    if (rawBasePath) {
-        fullPath = std::string(rawBasePath) + filename;
-    }
-    else {
-        fmt::println("Warning: SDL_GetBasePath failed, using relative path");
-        fullPath = "./" + filename; // Fallback
-    }
     std::ifstream file(fullPath, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error(fmt::format("Failed to open file: {}", fullPath));
@@ -777,7 +868,7 @@ std::vector<char> KitsuneEngine::readFile(const std::string& filename) const {
     file.seekg(0);
     file.read(buffer.data(), fileSize);
     file.close();
-
+    fmt::println("Loaded file: {}", fullPath);
     return buffer;
 }
 
