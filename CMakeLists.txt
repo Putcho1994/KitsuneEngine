@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt : CMake project for KitsuneEngine, include source and define
 # project specific logic here.
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.20)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -35,7 +35,12 @@ CPMAddPackage(NAME SDL3 GITHUB_REPOSITORY libsdl-org/SDL GIT_TAG release-3.2.8 O
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 10.2.1)
 CPMAddPackage(NAME Vulkan-Headers GITHUB_REPOSITORY KhronosGroup/Vulkan-Headers GIT_TAG v1.4.310)
 CPMAddPackage(NAME imgui GITHUB_REPOSITORY ocornut/imgui GIT_TAG v1.91.9b)
+CPMAddPackage(
+    NAME glm
+    GITHUB_REPOSITORY g-truc/glm
+    GIT_TAG 1.0.1  # Latest stable release as of now; check for updates
 
+)
 
 
 

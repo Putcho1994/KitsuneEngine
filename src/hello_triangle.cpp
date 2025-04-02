@@ -1,7 +1,13 @@
 #pragma once
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
+#define VKB_ENABLE_PORTABILITY
+#ifdef _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif 
+
 
 #include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.hpp>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <fmt/core.h>
@@ -10,6 +16,10 @@
 #include <string>
 #include <fstream>
 #include <stdexcept>
+#include <glm/glm.hpp>
+#include <iostream>
+
+
 
 class HelloTriangle {
     static inline constexpr const char* ENGINE_NAME = "HelloTriangle";
@@ -137,7 +147,103 @@ private:
         createCommandBuffers();
     }
 
-    void createInstance() {
+    bool validateExtensions(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available)
+    {
+        bool allFound = true;
+
+        for (const auto* extensionName : required)
+        {
+            bool found = false;
+
+            for (const auto& availableExtension : available)
+            {
+                if (strcmp(availableExtension.extensionName, extensionName) == 0)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                fmt::println("Error: Required extension not found: {}", extensionName);
+
+                allFound = false;
+            }
+
+        }
+
+        return allFound;
+    }
+
+    std::vector<const char*> getInstanceExtensions( std::vector<vk::ExtensionProperties>const& availableInstanceExtensions,bool & portabilityEnumerationAvailable) const
+    {
+        std::vector<const char*> required;
+
+        const char* const* exts = SDL_Vulkan_GetInstanceExtensions(nullptr);
+        if (!exts)
+        {
+            throw SDLException("Failed to get Vulkan instance extensions");
+        }
+        else
+        {
+            required.push_back(*exts);
+        }
+
+#if defined( VK_USE_PLATFORM_ANDROID_KHR )
+        required.push_back(vk::KHRAndroidSurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_METAL_EXT )
+        required.push_back(vk::EXTMetalSurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_VI_NN )
+        required.push_back(vk::NNViSurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_WAYLAND_KHR )
+        required_instance_extensions.push_back(vk::KHRWaylandSurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_WIN32_KHR )
+        required.push_back(vk::KHRWin32SurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_XCB_KHR )
+        required.push_back(vk::KHRXcbSurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_XLIB_KHR )
+        required.push_back(vk::KHRXlibSurfaceExtensionName);
+#elif defined( VK_USE_PLATFORM_XLIB_XRANDR_EXT )
+        required.push_back(vk::EXTAcquireXlibDisplayExtensionName);
+#else
+#	pragma error Platform not supported
+#endif
+
+#if (defined(VKB_ENABLE_PORTABILITY))
+        required.push_back(vk::KHRGetPhysicalDeviceProperties2ExtensionName);
+        portabilityEnumerationAvailable = false;
+        if (std::any_of(availableInstanceExtensions.begin(),
+            availableInstanceExtensions.end(),
+            [](VkExtensionProperties const& extension) { return strcmp(extension.extensionName, vk::KHRPortabilityEnumerationExtensionName) == 0; }))
+        {
+            required.push_back(vk::KHRPortabilityEnumerationExtensionName);
+            portabilityEnumerationAvailable = true;
+        }
+#else
+        portabilityEnumerationAvailable = false;
+#endif
+
+        return required;
+    }
+
+    void createInstance() 
+    {
+        bool portabilityEnumerationAvailable = false;
+        std::vector<vk::ExtensionProperties> availableInstanceExtensions = context->enumerateInstanceExtensionProperties();
+        std::vector<const char*> requiredInstanceExtensions = getInstanceExtensions(availableInstanceExtensions, portabilityEnumerationAvailable);
+        
+        if (!validateExtensions(requiredInstanceExtensions, availableInstanceExtensions))
+        {
+            throw std::runtime_error("Required instance extensions are missing.");
+        }
+
+        std::cout << "Required Instance Extensions:" << std::endl;
+        for (auto const& ext : requiredInstanceExtensions)
+        {
+            fmt::println("{}", ext);
+        }
+
         vk::ApplicationInfo appInfo{};
         appInfo.setPApplicationName(ENGINE_NAME)
             .setApplicationVersion(ENGINE_VERSION)
@@ -145,14 +251,15 @@ private:
             .setEngineVersion(ENGINE_VERSION)
             .setApiVersion(API_VERSION);
 
-        uint32_t extCount;
-        const char* const* exts = SDL_Vulkan_GetInstanceExtensions(&extCount);
-        if (!exts) throw SDLException("Failed to get Vulkan instance extensions");
-
         vk::InstanceCreateInfo createInfo{};
         createInfo.setPApplicationInfo(&appInfo)
-            .setEnabledExtensionCount(extCount)
-            .setPpEnabledExtensionNames(exts);
+            .setEnabledExtensionCount(static_cast<uint32_t>(requiredInstanceExtensions.size()))
+            .setPpEnabledExtensionNames(requiredInstanceExtensions.data());
+
+        if (portabilityEnumerationAvailable)
+        {
+            createInfo.setFlags({ vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR });
+        }
 
         instance.emplace(*context, createInfo);
     }
