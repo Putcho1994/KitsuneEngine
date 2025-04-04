@@ -563,14 +563,7 @@ private:
 
         graphicsQueue->submit(submitInfo, *inFlightFences[currentFrameIndex]);
 
-        vk::PresentInfoKHR presentInfo{};
-        presentInfo.setWaitSemaphoreCount(1)
-            .setPWaitSemaphores(&(*renderFinishedSemaphores[currentFrameIndex]))
-            .setSwapchainCount(1)
-            .setPSwapchains(&(**swapChain))
-            .setPImageIndices(&imageIndex);
-
-        vk::Result presentResult = presentQueue->presentKHR(presentInfo);
+        vk::Result presentResult = presentImage(imageIndex);
         if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
             recreateSwapchain();
         }
@@ -579,6 +572,18 @@ private:
         }
 
         currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
+
+    vk::Result presentImage(uint32_t imageIndex)
+    {
+        vk::PresentInfoKHR presentInfo{};
+        presentInfo.setWaitSemaphoreCount(1)
+            .setPWaitSemaphores(&(*renderFinishedSemaphores[currentFrameIndex]))
+            .setSwapchainCount(1)
+            .setPSwapchains(&(**swapChain))
+            .setPImageIndices(&imageIndex);
+
+        return presentQueue->presentKHR(presentInfo);
     }
 
     void recreateSwapchain() {
