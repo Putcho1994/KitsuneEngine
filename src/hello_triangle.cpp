@@ -68,7 +68,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageFunc(vk::DebugUtilsMessageSeverityFla
 #ifdef _WIN32
     MessageBox(NULL, message.str().c_str(), "Alert", MB_OK);
 #else
-    std::cout << message.str() << std::endl;
+    fmt::printIn("{}", message.str());
 #endif
 
     return false;
@@ -464,7 +464,7 @@ private:
         framebuffers.reserve(swapchainImageViews.size());
         for (const auto& view : swapchainImageViews) {
             vk::FramebufferCreateInfo fbInfo{};
-            fbInfo.setRenderPass(*vkRenderPass)
+            fbInfo
                 .setAttachmentCount(1)
                 .setPAttachments(&(*view))
                 .setWidth(swapchainExtent.width)
