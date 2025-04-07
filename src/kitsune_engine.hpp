@@ -1,15 +1,11 @@
+
+
+
+
+
 #pragma once
 #include <kitsune_types.h>
 #include <kitsune_windowing.hpp>
-
-static constexpr const char* ENGINE_NAME = "HelloTriangle";
-static constexpr uint32_t ENGINE_VERSION = VK_MAKE_VERSION(1, 0, 0);
-static constexpr uint32_t API_VERSION = VK_API_VERSION_1_3;
-static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-
-namespace ke
-{
-
 	struct PerFrame
 	{
 		std::optional <vk::raii::Fence>          queue_submit_fence{ VK_NULL_HANDLE };
@@ -35,7 +31,7 @@ namespace ke
 
 	class KitsuneEngine {
 	public:
-		KitsuneEngine();
+		KitsuneEngine(KitsuneWindowing& windowing);
 		~KitsuneEngine();
 
 		void Init();
@@ -47,8 +43,8 @@ namespace ke
 	private:
 		bool isRunning{ false };
 		bool hasPortability{ false };
-		// SDL and Window
-		KitsuneWindowing windowing{};
+		
+		KitsuneWindowing& windowing_;
 		VulkanResorces resorces{};
 		std::string basePath;
 		vk::Extent2D windowExtent{ 800, 600 };
@@ -59,7 +55,4 @@ namespace ke
 		void CreateInstance();
 	};
 
-	
 
-	
-}

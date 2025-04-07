@@ -1,20 +1,21 @@
 #pragma once
 #include <kitsune_engine.hpp>
 
+KitsuneEngine::KitsuneEngine(KitsuneWindowing& windowing): windowing_(windowing) {}
+KitsuneEngine::~KitsuneEngine() {}
 
-
-void ke::KitsuneEngine::Init()
+void KitsuneEngine::Init()
 {
-	windowing.init();
+	windowing_.init();
 }
 
-void ke::KitsuneEngine::CreateContext()
+void KitsuneEngine::CreateContext()
 {
-	auto vkGetInstanceProcAddr = windowing.GetVkGetInstanceProcAddr();
+	auto vkGetInstanceProcAddr = windowing_.GetVkGetInstanceProcAddr();
 	resorces.context.emplace(vkGetInstanceProcAddr);
 }
 
-void ke::KitsuneEngine::CreateInstance()
+void KitsuneEngine::CreateInstance()
 {
     std::vector<vk::ExtensionProperties> availableExtensions = resorces.context->enumerateInstanceExtensionProperties();
     std::vector<const char*> requiredExtensions = GetRequiredInstanceExtensions(availableExtensions);
@@ -49,15 +50,12 @@ void ke::KitsuneEngine::CreateInstance()
 }
 
 // Utility Methods
-std::vector<const char*> ke::KitsuneEngine::GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
+std::vector<const char*> KitsuneEngine::GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
     std::vector<const char*> extensions;
 
-    windowing.GetInstanceExtensions(extensions);
+    windowing_.GetInstanceExtensions(extensions);
 
 
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    extensions.push_back(vk::KHRWin32SurfaceExtensionName);
-#endif
 
 
 #ifdef VKB_ENABLE_PORTABILITY
@@ -72,7 +70,7 @@ std::vector<const char*> ke::KitsuneEngine::GetRequiredInstanceExtensions(const 
     return extensions;
 }
 
-bool ke::KitsuneEngine::AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const {
+bool KitsuneEngine::AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const {
 	for (const auto* req : required) {
 		bool found = false;
 		for (const auto& avail : available) {

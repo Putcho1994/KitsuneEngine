@@ -1,25 +1,11 @@
 #pragma once
-#define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
-#define VKB_ENABLE_PORTABILITY
-#define VK_ENABLE_BETA_EXTENSIONS
-#ifdef _WIN32
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
 
-#include <vulkan/vulkan_raii.hpp>
-#include <kitsune_engine.hpp>
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
-#include <fmt/core.h>
-#include <vector>
-#include <set>
-#include <string>
-#include <fstream>
-#include <stdexcept>
-#include <glm/glm.hpp>
-#include <iostream>
-#include <sstream>
-#include <vulkan/vulkan_to_string.hpp>
+#define VK_ENABLE_BETA_EXTENSIONS
+
+
+
+#include <kitsune_types.h>
+
 #include <kitsune_windowing.hpp>
 
 
@@ -80,7 +66,7 @@ class HelloTriangle {
     bool useVsync{ true };
     bool hasPortability{ false };
     bool hasDebugUtils{ false };
-    ke::KitsuneWindowing windowing;
+    KitsuneWindowing windowing;
 
 public:
     HelloTriangle() = default;
@@ -547,24 +533,9 @@ private:
     std::vector<const char*> getRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
         std::vector<const char*> extensions;
 
-        const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(nullptr);
-        if (!sdlExts) throw SDLException("Failed to get SDL Vulkan extensions");
-        extensions.push_back(*sdlExts);
+		windowing.GetInstanceExtensions(extensions);
 
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-        extensions.push_back(vk::KHRWin32SurfaceExtensionName);
-#endif
 
-#if defined(_DEBUG)
-        hasDebugUtils = std::any_of(available.begin(), available.end(),
-            [](const auto& ext) { return strcmp(ext.extensionName, vk::EXTDebugUtilsExtensionName) == 0; });
-        if (hasDebugUtils) {
-            extensions.push_back(vk::EXTDebugUtilsExtensionName);
-        }
-        else {
-            fmt::println("{} not available; debug utils disabled", vk::EXTDebugUtilsExtensionName);
-        }
-#endif
 
 #ifdef VKB_ENABLE_PORTABILITY
         extensions.push_back(vk::KHRGetPhysicalDeviceProperties2ExtensionName);

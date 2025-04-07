@@ -1,20 +1,12 @@
 #pragma once
-#include <kitsune_types.h>
 #include <kitsune_windowing.hpp>
 
-ke::KitsuneWindowing::KitsuneWindowing()
-{ 
-	
-}
-ke::KitsuneWindowing::~KitsuneWindowing()
-{
+    
+KitsuneWindowing::KitsuneWindowing() {}
+KitsuneWindowing::~KitsuneWindowing() {}
 
 
-	
-}
-
-
-void ke::KitsuneWindowing::init()
+void KitsuneWindowing::init()
 {
     if (!SDL_Init(SDL_INIT_VIDEO)) throw SDLException("Failed to initialize SDL");
     if (!SDL_Vulkan_LoadLibrary(nullptr)) throw SDLException("Failed to load Vulkan library");
@@ -34,21 +26,24 @@ void ke::KitsuneWindowing::init()
     SDL_SetWindowPosition(window.get(), 2, 32);
 }
 
-void ke::KitsuneWindowing::GetInstanceExtensions(std::vector<const char*>& extensions) const
+void KitsuneWindowing::GetInstanceExtensions(std::vector<const char*>& extensions) const
 {
     const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(nullptr);
     if (!sdlExts) throw SDLException("Failed to get SDL Vulkan extensions");
 
-    extensions.push_back(*sdlExts);
+    for (const char* const* ext = sdlExts; *ext != nullptr; ++ext) {
+        extensions.push_back(*ext);
+        fmt::println("SDL extension: {}", *ext);
+    }
 }
 
-vk::Extent2D ke::KitsuneWindowing::GetWindowExtent() const {
+vk::Extent2D KitsuneWindowing::GetWindowExtent() const {
     int w, h;
     SDL_GetWindowSizeInPixels(window.get(), &w, &h);
     return { static_cast<uint32_t>(w), static_cast<uint32_t>(h) };
 }
 
-VkSurfaceKHR ke::KitsuneWindowing::GetSurface(const vk::raii::Instance& vkInstance) const
+VkSurfaceKHR KitsuneWindowing::GetSurface(const vk::raii::Instance& vkInstance) const
 {
     VkSurfaceKHR surface;
     if (!SDL_Vulkan_CreateSurface(window.get(), *vkInstance, nullptr, &surface))
@@ -58,11 +53,11 @@ VkSurfaceKHR ke::KitsuneWindowing::GetSurface(const vk::raii::Instance& vkInstan
     return surface;
 }
 
-PFN_vkGetInstanceProcAddr ke::KitsuneWindowing::GetVkGetInstanceProcAddr() const
+PFN_vkGetInstanceProcAddr KitsuneWindowing::GetVkGetInstanceProcAddr() const
 {
     auto instanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr());
 
     if (!instanceProcAddr) throw SDLException("Failed to get vkGetInstanceProcAddr");
 
-	return instanceProcAddr;
+    return instanceProcAddr;
 }
