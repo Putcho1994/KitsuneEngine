@@ -1,5 +1,12 @@
 ﻿#pragma once
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
+
+#ifdef _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
+#define VKB_ENABLE_PORTABILITY
+
+
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -26,7 +33,7 @@
 
 #define VK_CHECK(x)                                                     \
     do {                                                                \
-        VkResult err = x;                                               \
+        vk::Result err = x;                                               \
         if (err) {                                                      \
              fmt::print("Detected Vulkan error: {}", string_VkResult(err)); \
             abort();                                                    \

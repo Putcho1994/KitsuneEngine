@@ -7,7 +7,7 @@
 #endif
 
 #include <vulkan/vulkan_raii.hpp>
-
+#include <kitsune_engine.hpp>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <fmt/core.h>
@@ -20,74 +20,20 @@
 #include <iostream>
 #include <sstream>
 #include <vulkan/vulkan_to_string.hpp>
+#include <kitsune_windowing.hpp>
 
-// Debug callback for validation layers (enabled in debug builds)
-#if defined(_DEBUG)
-VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageFunc(vk::DebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
-    vk::DebugUtilsMessageTypeFlagsEXT              messageTypes,
-    vk::DebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-    void* /*pUserData*/)
-{
-    std::ostringstream message;
-
-    message << vk::to_string(messageSeverity) << ": " << vk::to_string(messageTypes) << ":\n";
-    message << std::string("\t") << "messageIDName   = <" << pCallbackData->pMessageIdName << ">\n";
-    message << std::string("\t") << "messageIdNumber = " << pCallbackData->messageIdNumber << "\n";
-    message << std::string("\t") << "message         = <" << pCallbackData->pMessage << ">\n";
-    if (0 < pCallbackData->queueLabelCount)
-    {
-        message << std::string("\t") << "Queue Labels:\n";
-        for (uint32_t i = 0; i < pCallbackData->queueLabelCount; i++)
-        {
-            message << std::string("\t\t") << "labelName = <" << pCallbackData->pQueueLabels[i].pLabelName << ">\n";
-        }
-    }
-    if (0 < pCallbackData->cmdBufLabelCount)
-    {
-        message << std::string("\t") << "CommandBuffer Labels:\n";
-        for (uint32_t i = 0; i < pCallbackData->cmdBufLabelCount; i++)
-        {
-            message << std::string("\t\t") << "labelName = <" << pCallbackData->pCmdBufLabels[i].pLabelName << ">\n";
-        }
-    }
-    if (0 < pCallbackData->objectCount)
-    {
-        message << std::string("\t") << "Objects:\n";
-        for (uint32_t i = 0; i < pCallbackData->objectCount; i++)
-        {
-            message << std::string("\t\t") << "Object " << i << "\n";
-            message << std::string("\t\t\t") << "objectType   = " << vk::to_string(pCallbackData->pObjects[i].objectType) << "\n";
-            message << std::string("\t\t\t") << "objectHandle = " << pCallbackData->pObjects[i].objectHandle << "\n";
-            if (pCallbackData->pObjects[i].pObjectName)
-            {
-                message << std::string("\t\t\t") << "objectName   = <" << pCallbackData->pObjects[i].pObjectName << ">\n";
-            }
-        }
-    }
-
-#ifdef _WIN32
-    MessageBox(NULL, message.str().c_str(), "Alert", MB_OK);
-#else
-    fmt::printIn("{}", message.str());
-#endif
-
-    return false;
-}
-#endif
 
 class HelloTriangle {
 
     
-
     // Constants
-    static constexpr const char* ENGINE_NAME = "HelloTriangle";
+    /*static constexpr const char* ENGINE_NAME = "HelloTriangle";
     static constexpr uint32_t ENGINE_VERSION = VK_MAKE_VERSION(1, 0, 0);
     static constexpr uint32_t API_VERSION = VK_API_VERSION_1_3;
-    static constexpr std::array<const char*, 2> REQUIRED_DEVICE_EXTENSIONS = { vk::KHRSwapchainExtensionName, vk::KHRSynchronization2ExtensionName };
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;*/
 
     // SDL and Window
-    std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window{ nullptr, SDL_DestroyWindow };
+
     std::string basePath;
 
     // Vulkan Core Objects
@@ -116,7 +62,6 @@ class HelloTriangle {
     // Rendering Resources
     std::optional<vk::raii::PipelineLayout> vkPipelineLayout{};
     std::optional<vk::raii::Pipeline> vkGraphicsPipeline{};
-    std::vector<vk::raii::Framebuffer> framebuffers;
 
     // Command and Synchronization Objects
     std::optional<vk::raii::CommandPool> vkCommandPool{};
@@ -135,6 +80,7 @@ class HelloTriangle {
     bool useVsync{ true };
     bool hasPortability{ false };
     bool hasDebugUtils{ false };
+    ke::KitsuneWindowing windowing;
 
 public:
     HelloTriangle() = default;
@@ -146,8 +92,8 @@ public:
     }
 
     void run() {
-        SDL_ShowWindow(window.get());
-        SDL_MaximizeWindow(window.get());
+		windowing.ShowWindow();
+		windowing.MaximizeWindow();
         isRenderingEnabled = true;
 
         while (isRunning) {
@@ -167,23 +113,9 @@ private:
 
     // Initialization Methods
     void initializeSDL() {
-        if (!SDL_Init(SDL_INIT_VIDEO)) throw SDLException("Failed to initialize SDL");
-        if (!SDL_Vulkan_LoadLibrary(nullptr)) throw SDLException("Failed to load Vulkan library");
+		windowing.init();
 
-        SDL_DisplayID primary = SDL_GetPrimaryDisplay();
-        SDL_Rect usableBounds{};
-        SDL_GetDisplayUsableBounds(primary, &usableBounds);
-        fmt::println("Display usable bounds: {}x{}", usableBounds.w, usableBounds.h);
-
-        window.reset(SDL_CreateWindow(
-            ENGINE_NAME,
-            usableBounds.w - 4, usableBounds.h - 34, // Account for title bar and resize handle
-            SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN));
-        if (!window) throw SDLException("Failed to create window");
-
-        windowExtent = getWindowExtent();
-        SDL_SetWindowMinimumSize(window.get(), 100, 100);
-        SDL_SetWindowPosition(window.get(), 2, 32);
+        windowExtent = windowing.GetWindowExtent();
 
         basePath = SDL_GetBasePath() ? SDL_GetBasePath() : "./";
         fmt::println("Base path: {}", basePath);
@@ -199,14 +131,12 @@ private:
         createSwapchain();
         createImageViews();
         createGraphicsPipeline();
-        createFramebuffers();
         createSynchronizationObjects();
         createCommandBuffers();
     }
 
     void createVulkanContext() {
-        auto vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr());
-        if (!vkGetInstanceProcAddr) throw SDLException("Failed to get vkGetInstanceProcAddr");
+		auto vkGetInstanceProcAddr = windowing.GetVkGetInstanceProcAddr();
         vkContext.emplace(vkGetInstanceProcAddr);
     }
 
@@ -239,40 +169,13 @@ private:
             createInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
         }
 
-        vk::DebugUtilsMessengerCreateInfoEXT messengerInfo{};
-        
-#ifdef _DEBUG
-        if (hasDebugUtils) {
-            
-            messengerInfo.setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
-                .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                    vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation)
-                .setPfnUserCallback(&debugMessageFunc);
-
-            // Temporarily link to instance creation for early validation (optional)
-            createInfo.setPNext(&messengerInfo);
-        }
-#endif // _DEBUG
-
-        
-
 
         vkInstance.emplace(*vkContext, createInfo);
-
-#ifdef _DEBUG
-        vk::raii::DebugUtilsMessengerEXT tempMessenger(*vkInstance, messengerInfo);
-        vkDebugMessenger = tempMessenger.release(); // Instance will destroy it
-#endif // DEBUG
-
     }
     
 
     void createSurface() {
-        VkSurfaceKHR rawSurface;
-        if (!SDL_Vulkan_CreateSurface(window.get(), **vkInstance, nullptr, &rawSurface)) {
-            throw SDLException("Failed to create surface");
-        }
+		VkSurfaceKHR rawSurface = windowing.GetSurface(*vkInstance);
         vkSurface.emplace(*vkInstance, rawSurface);
     }
 
@@ -290,7 +193,7 @@ private:
 
     void createLogicalDevice() {
         std::vector<vk::ExtensionProperties> availableExtensions = vkPhysicalDevice->enumerateDeviceExtensionProperties();
-        std::vector<const char*> requiredExtensions{ REQUIRED_DEVICE_EXTENSIONS.begin(), REQUIRED_DEVICE_EXTENSIONS.end() };
+        std::vector<const char*> requiredExtensions{ vk::KHRSwapchainExtensionName, vk::KHRSynchronization2ExtensionName };
 
         if (!areExtensionsSupported(requiredExtensions, availableExtensions)) {
             throw std::runtime_error("Required device extensions are missing");
@@ -459,20 +362,6 @@ private:
         vkGraphicsPipeline.emplace(*vkDevice, nullptr, pipelineInfo);
     }
 
-    void createFramebuffers() {
-        framebuffers.clear();
-        framebuffers.reserve(swapchainImageViews.size());
-        for (const auto& view : swapchainImageViews) {
-            vk::FramebufferCreateInfo fbInfo{};
-            fbInfo
-                .setAttachmentCount(1)
-                .setPAttachments(&(*view))
-                .setWidth(swapchainExtent.width)
-                .setHeight(swapchainExtent.height)
-                .setLayers(1);
-            framebuffers.emplace_back(*vkDevice, fbInfo);
-        }
-    }
 
     void createSynchronizationObjects() {
         vk::SemaphoreCreateInfo semaphoreInfo{};
@@ -619,16 +508,14 @@ private:
 
     void recreateSwapchain() {
         vkDevice->waitIdle();
-        windowExtent = getWindowExtent();
+        windowExtent = windowing.GetWindowExtent();
         if (windowExtent.width == 0 || windowExtent.height == 0) return;
 
-        framebuffers.clear();
         swapchainImageViews.clear();
         vkSwapchain.reset();
 
         createSwapchain();
         createImageViews();
-        createFramebuffers();
         isFramebufferResized = false;
     }
 
@@ -641,7 +528,7 @@ private:
                 isRunning = false;
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-                windowExtent = getWindowExtent();
+                windowExtent = windowing.GetWindowExtent();
                 fmt::println("Window resized: {}x{}", windowExtent.width, windowExtent.height);
                 isFramebufferResized = true;
                 recreateSwapchain();
@@ -736,17 +623,12 @@ private:
         if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return caps.currentExtent;
         }
-        vk::Extent2D extent = getWindowExtent();
+        vk::Extent2D extent = windowing.GetWindowExtent();
         extent.width = std::clamp(extent.width, caps.minImageExtent.width, caps.maxImageExtent.width);
         extent.height = std::clamp(extent.height, caps.minImageExtent.height, caps.maxImageExtent.height);
         return extent;
     }
 
-    vk::Extent2D getWindowExtent() const {
-        int w, h;
-        SDL_GetWindowSizeInPixels(window.get(), &w, &h);
-        return { static_cast<uint32_t>(w), static_cast<uint32_t>(h) };
-    }
 
     std::vector<char> loadShader(const std::string& filename) const {
         std::string path = basePath + filename;
@@ -761,6 +643,7 @@ private:
     }
 
     void cleanup() {
+
         SDL_Quit();
     }
 };
