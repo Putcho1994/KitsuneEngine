@@ -1,58 +1,75 @@
-
-
-
-
-
 #pragma once
 #include <kitsune_types.h>
 #include <kitsune_windowing.hpp>
-	struct PerFrame
-	{
-		std::optional <vk::raii::Fence>          queue_submit_fence{ VK_NULL_HANDLE };
-		std::optional < vk::raii::CommandPool>   primary_command_pool{ VK_NULL_HANDLE };
-		std::optional < vk::raii::CommandBuffer> primary_command_buffer{ VK_NULL_HANDLE };
-		std::optional < vk::raii::Semaphore>     swapchain_acquire_semaphore{ VK_NULL_HANDLE };
-		std::optional < vk::raii::Semaphore>     swapchain_release_semaphore{ VK_NULL_HANDLE };
-	};
-
-	struct VulkanResorces
-	{
-		std::optional <vk::raii::Context> context{ VK_NULL_HANDLE };
-		std::optional <vk::raii::Instance> instance{ VK_NULL_HANDLE };
-		std::optional <vk::raii::PhysicalDevice> physicalDevice{ VK_NULL_HANDLE };
-		std::optional <vk::raii::Device> device{ VK_NULL_HANDLE };
-		std::optional <vk::raii::SurfaceKHR> surface{ VK_NULL_HANDLE };
-		std::optional <vk::raii::SwapchainKHR> swapchain{ VK_NULL_HANDLE };
-		std::optional <vk::raii::PipelineLayout> pipelineLayout{ VK_NULL_HANDLE };
-		std::optional <vk::raii::Pipeline> graphicsPipeline{ VK_NULL_HANDLE };
-		std::optional <vk::raii::CommandPool> commandPool{ VK_NULL_HANDLE };
-	};
 
 
-	class KitsuneEngine {
-	public:
-		KitsuneEngine(KitsuneWindowing& windowing);
-		~KitsuneEngine();
+struct PerFrame
+{
+	std::optional <vk::raii::Fence>          queue_submit_fence{};
+	std::optional < vk::raii::CommandPool>   primary_command_pool{};
+	std::optional < vk::raii::CommandBuffer> primary_command_buffer{};
+	std::optional < vk::raii::Semaphore>     swapchain_acquire_semaphore{};
+	std::optional < vk::raii::Semaphore>     swapchain_release_semaphore{};
+};
 
-		void Init();
-		void run();
+	
+struct VulkanResorces
+{
+	std::optional <vk::raii::Context> context{};
+	std::optional <vk::raii::Instance> instance{};
+	std::optional <vk::raii::PhysicalDevice> physicalDevice{};
+	std::optional <vk::raii::Device> device{};
+	std::optional <vk::raii::SurfaceKHR> surface{};
+	std::optional <vk::raii::SwapchainKHR> swapchain{};
+	std::optional <vk::raii::PipelineLayout> pipelineLayout{};
+	std::optional <vk::raii::Pipeline> graphicsPipeline{};
+	std::optional <vk::raii::CommandPool> commandPool{};
+};
 
-		std::vector<const char*> GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available);
-		bool AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const;
+struct QueueFamilyIndices
+{
+	std::optional<uint32_t> graphics;
+	std::optional<uint32_t> present;
+};
+	
+class KitsuneEngine
+{
+public:
+	KitsuneEngine(KitsuneWindowing& windowing);
+	~KitsuneEngine();
 
-	private:
-		bool isRunning{ false };
-		bool hasPortability{ false };
-		
-		KitsuneWindowing& windowing_;
-		VulkanResorces resorces{};
-		std::string basePath;
-		vk::Extent2D windowExtent{ 800, 600 };
+	void Init();
+	void run();
+
+	std::vector<const char*> GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available);
+	bool AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const;
+	VulkanResorces resorces{};
+
+	const std::string& GetBasePath() const { return basePath; };
+	const vk::Extent2D& GetWindowExtent() const { return windowExtent; };
+	const QueueFamilyIndices& GetQueueFamilyIndices() const { return queueFamilyIndices; };
+
+	void ResetWindowExtent();
 
 
+private:
+	bool isRunning{ false };
+	bool hasPortability{ false };
 
-		void CreateContext();
-		void CreateInstance();
-	};
+	KitsuneWindowing& windowing_;
+	
+	std::string basePath;
+	vk::Extent2D windowExtent{ 800, 600 };
+
+	QueueFamilyIndices queueFamilyIndices{ std::nullopt, std::nullopt };
+
+	void CreateContext();
+	void CreateInstance();
+	void CreateSurface();
+	void SelectPhysicalDevice();
+
+
+	QueueFamilyIndices FindQueueFamilies(const vk::raii::PhysicalDevice& device) const;
+};
 
 

@@ -6,7 +6,20 @@ KitsuneEngine::~KitsuneEngine() {}
 
 void KitsuneEngine::Init()
 {
-	windowing_.init();
+    windowExtent = windowing_.GetWindowExtent();
+
+    basePath = SDL_GetBasePath() ? SDL_GetBasePath() : "./";
+    fmt::println("Base path: {}", basePath);
+
+	CreateContext();
+	CreateInstance();
+	CreateSurface();
+    SelectPhysicalDevice();
+}
+
+void KitsuneEngine::ResetWindowExtent()
+{ 
+    windowExtent = windowing_.GetWindowExtent();
 }
 
 void KitsuneEngine::CreateContext()
@@ -49,6 +62,26 @@ void KitsuneEngine::CreateInstance()
     resorces.instance.emplace(*resorces.context, createInfo);
 }
 
+void KitsuneEngine::CreateSurface() 
+{
+	const vk::raii::Instance& vkInstance = *resorces.instance;
+    VkSurfaceKHR rawSurface = windowing_.GetSurface(vkInstance);
+    resorces.surface.emplace(vkInstance, rawSurface);
+}
+
+void KitsuneEngine::SelectPhysicalDevice() 
+{
+    auto devices = resorces.instance->enumeratePhysicalDevices();
+    for (const auto& device : devices) {
+        queueFamilyIndices = FindQueueFamilies(device);
+        if (queueFamilyIndices.graphics && queueFamilyIndices.present) {
+            resorces.physicalDevice = device;
+            break;
+        }
+    }
+    if (!resorces.physicalDevice) throw std::runtime_error("No suitable physical device found");
+}
+
 // Utility Methods
 std::vector<const char*> KitsuneEngine::GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
     std::vector<const char*> extensions;
@@ -85,4 +118,15 @@ bool KitsuneEngine::AreExtensionsSupported(const std::vector<const char*>& requi
 		}
 	}
 	return true;
+}
+
+QueueFamilyIndices KitsuneEngine::FindQueueFamilies(const vk::raii::PhysicalDevice& device) const {
+	QueueFamilyIndices indices;
+	auto families = device.getQueueFamilyProperties();
+	for (uint32_t i = 0; i < families.size(); ++i) {
+		if (families[i].queueFlags & vk::QueueFlagBits::eGraphics) indices.graphics = i;
+		if (device.getSurfaceSupportKHR(i, *resorces.surface)) indices.present = i;
+		if (indices.graphics && indices.present) break;
+	}
+	return indices;
 }
