@@ -1,46 +1,16 @@
-#pragma once
-#define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
-#define VKB_ENABLE_PORTABILITY
-#define VK_ENABLE_BETA_EXTENSIONS
-#ifdef _WIN32
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
 
-#include <vulkan/vulkan_raii.hpp>
-#include <kitsune_engine.hpp>
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
-#include <fmt/core.h>
-#include <vector>
-#include <set>
-#include <string>
-#include <fstream>
-#include <stdexcept>
-#include <glm/glm.hpp>
-#include <iostream>
-#include <sstream>
-#include <vulkan/vulkan_to_string.hpp>
+#include <kitsune_types.h>
 #include <kitsune_windowing.hpp>
-
+#include <kitsune_engine.hpp>
 
 class HelloTriangle {
 
-    
-    // Constants
-    /*static constexpr const char* ENGINE_NAME = "HelloTriangle";
-    static constexpr uint32_t ENGINE_VERSION = VK_MAKE_VERSION(1, 0, 0);
-    static constexpr uint32_t API_VERSION = VK_API_VERSION_1_3;
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;*/
 
     // SDL and Window
-
+    KitsuneWindowing windowing;
+    KitsuneEngine engine{ windowing };
     std::string basePath;
 
-    // Vulkan Core Objects
-    std::optional<vk::raii::Context> vkContext{};
-    std::optional<vk::raii::Instance> vkInstance{};
-    VkDebugUtilsMessengerEXT vkDebugMessenger{ VK_NULL_HANDLE }; // Raw handle, managed by instance
-    std::optional<vk::raii::SurfaceKHR> vkSurface{};
     std::optional<vk::raii::PhysicalDevice> vkPhysicalDevice{};
     std::optional<vk::raii::Device> vkDevice{};
 
@@ -80,7 +50,7 @@ class HelloTriangle {
     bool useVsync{ true };
     bool hasPortability{ false };
     bool hasDebugUtils{ false };
-    ke::KitsuneWindowing windowing;
+
 
 public:
     HelloTriangle() = default;
@@ -92,8 +62,8 @@ public:
     }
 
     void run() {
-		windowing.ShowWindow();
-		windowing.MaximizeWindow();
+        windowing.ShowWindow();
+        windowing.MaximizeWindow();
         isRenderingEnabled = true;
 
         while (isRunning) {
@@ -113,7 +83,7 @@ private:
 
     // Initialization Methods
     void initializeSDL() {
-		windowing.init();
+        windowing.init();
 
         windowExtent = windowing.GetWindowExtent();
 
@@ -122,9 +92,8 @@ private:
     }
 
     void initializeVulkan() {
-        createVulkanContext();
-        createInstance();
-        createSurface();
+        engine.Init();
+
         selectPhysicalDevice();
         createLogicalDevice();
         createCommandPool();
@@ -135,52 +104,10 @@ private:
         createCommandBuffers();
     }
 
-    void createVulkanContext() {
-		auto vkGetInstanceProcAddr = windowing.GetVkGetInstanceProcAddr();
-        vkContext.emplace(vkGetInstanceProcAddr);
-    }
 
-    void createInstance() {
-        std::vector<vk::ExtensionProperties> availableExtensions = vkContext->enumerateInstanceExtensionProperties();
-        std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions(availableExtensions);
-
-        if (!areExtensionsSupported(requiredExtensions, availableExtensions)) {
-            throw std::runtime_error("Required instance extensions are missing.");
-        }
-
-        fmt::println("Required instance extensions:");
-        for (const auto& ext : requiredExtensions) {
-            fmt::println("  {}", ext);
-        }
-
-        vk::ApplicationInfo appInfo{};
-        appInfo.setPApplicationName(ENGINE_NAME)
-            .setApplicationVersion(ENGINE_VERSION)
-            .setPEngineName(ENGINE_NAME)
-            .setEngineVersion(ENGINE_VERSION)
-            .setApiVersion(API_VERSION);
-
-        vk::InstanceCreateInfo createInfo{};
-        createInfo.setPApplicationInfo(&appInfo)
-            .setEnabledExtensionCount(static_cast<uint32_t>(requiredExtensions.size()))
-            .setPpEnabledExtensionNames(requiredExtensions.data());
-
-        if (hasPortability) {
-            createInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
-        }
-
-
-        vkInstance.emplace(*vkContext, createInfo);
-    }
-    
-
-    void createSurface() {
-		VkSurfaceKHR rawSurface = windowing.GetSurface(*vkInstance);
-        vkSurface.emplace(*vkInstance, rawSurface);
-    }
 
     void selectPhysicalDevice() {
-        auto devices = vkInstance->enumeratePhysicalDevices();
+        auto devices = engine.resorces.instance->enumeratePhysicalDevices();
         for (const auto& device : devices) {
             queueFamilyIndices = findQueueFamilies(device);
             if (queueFamilyIndices.graphics && queueFamilyIndices.present) {
@@ -248,9 +175,9 @@ private:
     }
 
     void createSwapchain() {
-        vk::SurfaceCapabilitiesKHR capabilities = vkPhysicalDevice->getSurfaceCapabilitiesKHR(*vkSurface);
-        auto formats = vkPhysicalDevice->getSurfaceFormatsKHR(*vkSurface);
-        auto presentModes = vkPhysicalDevice->getSurfacePresentModesKHR(*vkSurface);
+        vk::SurfaceCapabilitiesKHR capabilities = vkPhysicalDevice->getSurfaceCapabilitiesKHR(*engine.resorces.surface);
+        auto formats = vkPhysicalDevice->getSurfaceFormatsKHR(*engine.resorces.surface);
+        auto presentModes = vkPhysicalDevice->getSurfacePresentModesKHR(*engine.resorces.surface);
 
         vk::SurfaceFormatKHR surfaceFormat = chooseSwapchainFormat(formats);
         swapchainFormat = surfaceFormat.format; // Extract vk::Format
@@ -263,7 +190,7 @@ private:
         }
 
         vk::SwapchainCreateInfoKHR createInfo{};
-        createInfo.setSurface(*vkSurface)
+        createInfo.setSurface(*engine.resorces.surface)
             .setMinImageCount(imageCount)
             .setImageFormat(swapchainFormat)
             .setImageColorSpace(surfaceFormat.colorSpace) // Use colorSpace from surfaceFormat
@@ -504,7 +431,7 @@ private:
         cmd.pipelineBarrier2(dependency);
     }
 
-    
+
 
     void recreateSwapchain() {
         vkDevice->waitIdle();
@@ -547,24 +474,9 @@ private:
     std::vector<const char*> getRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
         std::vector<const char*> extensions;
 
-        const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(nullptr);
-        if (!sdlExts) throw SDLException("Failed to get SDL Vulkan extensions");
-        extensions.push_back(*sdlExts);
+        windowing.GetInstanceExtensions(extensions);
 
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-        extensions.push_back(vk::KHRWin32SurfaceExtensionName);
-#endif
 
-#if defined(_DEBUG)
-        hasDebugUtils = std::any_of(available.begin(), available.end(),
-            [](const auto& ext) { return strcmp(ext.extensionName, vk::EXTDebugUtilsExtensionName) == 0; });
-        if (hasDebugUtils) {
-            extensions.push_back(vk::EXTDebugUtilsExtensionName);
-        }
-        else {
-            fmt::println("{} not available; debug utils disabled", vk::EXTDebugUtilsExtensionName);
-        }
-#endif
 
 #ifdef VKB_ENABLE_PORTABILITY
         extensions.push_back(vk::KHRGetPhysicalDeviceProperties2ExtensionName);
@@ -600,7 +512,7 @@ private:
         auto families = device.getQueueFamilyProperties();
         for (uint32_t i = 0; i < families.size(); ++i) {
             if (families[i].queueFlags & vk::QueueFlagBits::eGraphics) indices.graphics = i;
-            if (device.getSurfaceSupportKHR(i, *vkSurface)) indices.present = i;
+            if (device.getSurfaceSupportKHR(i, *engine.resorces.surface)) indices.present = i;
             if (indices.graphics && indices.present) break;
         }
         return indices;

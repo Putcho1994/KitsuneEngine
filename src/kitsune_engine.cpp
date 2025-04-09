@@ -1,20 +1,34 @@
 #pragma once
 #include <kitsune_engine.hpp>
 
+KitsuneEngine::KitsuneEngine(KitsuneWindowing& windowing) : windowing_(windowing) {}
+KitsuneEngine::~KitsuneEngine() {}
 
-
-void ke::KitsuneEngine::Init()
+void KitsuneEngine::Init()
 {
-	windowing.init();
+    windowExtent = windowing_.GetWindowExtent();
+
+    basePath = SDL_GetBasePath() ? SDL_GetBasePath() : "./";
+    fmt::println("Base path: {}", basePath);
+
+    CreateContext();
+    CreateInstance();
+    CreateSurface();
+    SelectPhysicalDevice();
 }
 
-void ke::KitsuneEngine::CreateContext()
+void KitsuneEngine::ResetWindowExtent()
 {
-	auto vkGetInstanceProcAddr = windowing.GetVkGetInstanceProcAddr();
-	resorces.context.emplace(vkGetInstanceProcAddr);
+    windowExtent = windowing_.GetWindowExtent();
 }
 
-void ke::KitsuneEngine::CreateInstance()
+void KitsuneEngine::CreateContext()
+{
+    auto vkGetInstanceProcAddr = windowing_.GetVkGetInstanceProcAddr();
+    resorces.context.emplace(vkGetInstanceProcAddr);
+}
+
+void KitsuneEngine::CreateInstance()
 {
     std::vector<vk::ExtensionProperties> availableExtensions = resorces.context->enumerateInstanceExtensionProperties();
     std::vector<const char*> requiredExtensions = GetRequiredInstanceExtensions(availableExtensions);
@@ -48,16 +62,33 @@ void ke::KitsuneEngine::CreateInstance()
     resorces.instance.emplace(*resorces.context, createInfo);
 }
 
+void KitsuneEngine::CreateSurface()
+{
+    const vk::raii::Instance& vkInstance = *resorces.instance;
+    VkSurfaceKHR rawSurface = windowing_.GetSurface(vkInstance);
+    resorces.surface.emplace(vkInstance, rawSurface);
+}
+
+void KitsuneEngine::SelectPhysicalDevice()
+{
+    auto devices = resorces.instance->enumeratePhysicalDevices();
+    for (const auto& device : devices) {
+        queueFamilyIndices = FindQueueFamilies(device);
+        if (queueFamilyIndices.graphics && queueFamilyIndices.present) {
+            resorces.physicalDevice = device;
+            break;
+        }
+    }
+    if (!resorces.physicalDevice) throw std::runtime_error("No suitable physical device found");
+}
+
 // Utility Methods
-std::vector<const char*> ke::KitsuneEngine::GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
+std::vector<const char*> KitsuneEngine::GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
     std::vector<const char*> extensions;
 
-    windowing.GetInstanceExtensions(extensions);
+    windowing_.GetInstanceExtensions(extensions);
 
 
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    extensions.push_back(vk::KHRWin32SurfaceExtensionName);
-#endif
 
 
 #ifdef VKB_ENABLE_PORTABILITY
@@ -72,19 +103,30 @@ std::vector<const char*> ke::KitsuneEngine::GetRequiredInstanceExtensions(const 
     return extensions;
 }
 
-bool ke::KitsuneEngine::AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const {
-	for (const auto* req : required) {
-		bool found = false;
-		for (const auto& avail : available) {
-			if (strcmp(req, avail.extensionName) == 0) {
-				found = true;
-				break;
-			}
-		}
-		if (!found) {
-			fmt::println("Missing extension: {}", req);
-			return false;
-		}
-	}
-	return true;
+bool KitsuneEngine::AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const {
+    for (const auto* req : required) {
+        bool found = false;
+        for (const auto& avail : available) {
+            if (strcmp(req, avail.extensionName) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            fmt::println("Missing extension: {}", req);
+            return false;
+        }
+    }
+    return true;
+}
+
+QueueFamilyIndices KitsuneEngine::FindQueueFamilies(const vk::raii::PhysicalDevice& device) const {
+    QueueFamilyIndices indices;
+    auto families = device.getQueueFamilyProperties();
+    for (uint32_t i = 0; i < families.size(); ++i) {
+        if (families[i].queueFlags & vk::QueueFlagBits::eGraphics) indices.graphics = i;
+        if (device.getSurfaceSupportKHR(i, *resorces.surface)) indices.present = i;
+        if (indices.graphics && indices.present) break;
+    }
+    return indices;
 }

@@ -1,4 +1,4 @@
-add_executable(${PROJECT_NAME}   "kitsune_types.h"   "hello_triangle.cpp"  "kitsune_engine.cpp" "kitsune_windowing.cpp")
+add_executable(${PROJECT_NAME}   "kitsune_types.h"  "hello_triangle.cpp"  "kitsune_engine.cpp"  "kitsune_windowing.cpp" )
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
 

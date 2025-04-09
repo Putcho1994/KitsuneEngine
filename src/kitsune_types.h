@@ -1,11 +1,7 @@
 ﻿#pragma once
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
-
-#ifdef _WIN32
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
 #define VKB_ENABLE_PORTABILITY
-
+#define VK_ENABLE_BETA_EXTENSIONS
 
 #include <iostream>
 #include <memory>
@@ -25,6 +21,15 @@
 #include <vulkan/vulkan_raii.hpp>
 
 
+
+#include <stdexcept>
+#include <glm/glm.hpp>
+
+#include <sstream>
+
+#include <vulkan/vulkan_to_string.hpp>
+
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <SDL3/SDL_filesystem.h>
@@ -39,3 +44,9 @@
             abort();                                                    \
         }                                                               \
     } while (0)
+
+
+static constexpr const char* ENGINE_NAME = "HelloTriangle";
+static constexpr uint32_t ENGINE_VERSION = VK_MAKE_VERSION(1, 0, 0);
+static constexpr uint32_t API_VERSION = VK_API_VERSION_1_3;
+static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
