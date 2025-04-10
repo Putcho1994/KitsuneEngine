@@ -1,7 +1,7 @@
 ﻿#pragma once
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
 #define VKB_ENABLE_PORTABILITY
-#define VK_ENABLE_BETA_EXTENSIONS
+
 
 #include <iostream>
 #include <memory>
