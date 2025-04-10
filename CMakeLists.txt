@@ -11,9 +11,10 @@ endif()
 
 
 
-project ("KitsuneEngine")
-
-set(CMAKE_CXX_STANDARD 23)
+project(KitsuneEngine VERSION 0.1.0 LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 
@@ -34,35 +35,7 @@ include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 CPMAddPackage(NAME SDL3 GITHUB_REPOSITORY libsdl-org/SDL GIT_TAG release-3.2.8 OPTIONS "SDL_VULKAN ON" "SDL_STATIC OFF")
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 10.2.1)
 CPMAddPackage(NAME Vulkan-Headers GITHUB_REPOSITORY KhronosGroup/Vulkan-Headers GIT_TAG v1.4.310)
-CPMAddPackage(NAME imgui GITHUB_REPOSITORY ocornut/imgui GIT_TAG v1.91.9b)
-CPMAddPackage(
-    NAME glm
-    GITHUB_REPOSITORY g-truc/glm
-    GIT_TAG 1.0.1  # Latest stable release as of now; check for updates
-
-)
-
-
-
-add_library(imgui STATIC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
-)
-
-target_include_directories(imgui PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${SDL3_SOURCE_DIR}/include
-    ${Vulkan-Headers_SOURCE_DIR}/include
-)
-
-target_link_libraries(imgui PUBLIC
-    SDL3::SDL3
-    Vulkan-Headers
-)
+CPMAddPackage(NAME glm GITHUB_REPOSITORY g-truc/glm GIT_TAG 1.0.1)
 
 find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 

@@ -2,7 +2,7 @@ add_executable(${PROJECT_NAME}   "kitsune_types.h"  "hello_triangle.cpp"  "kitsu
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
 
-target_compile_definitions(KitsuneEngine PUBLIC
+target_compile_definitions(${PROJECT_NAME} PUBLIC
   
     # Your options here, project-dependent:
     # https://github.com/KhronosGroup/Vulkan-Hpp#configuration-options
@@ -13,7 +13,7 @@ target_compile_definitions(KitsuneEngine PUBLIC
   )
 
 set(LIBS)
-list(APPEND LIBS fmt::fmt SDL3::SDL3 Vulkan-Headers imgui glm::glm-header-only)
+list(APPEND LIBS fmt::fmt SDL3::SDL3 Vulkan-Headers glm::glm-header-only)
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${PROJECT_NAME} ${LIBS})

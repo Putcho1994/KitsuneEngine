@@ -15,7 +15,7 @@
 #include <deque>
 #include <set>
 #include <algorithm>
-#include <utility>;
+#include <utility>
 #include <cassert>
 #include <fstream>
 #include <vulkan/vulkan_raii.hpp>
