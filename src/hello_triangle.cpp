@@ -61,13 +61,26 @@ public:
         initializeVulkan();
     }
 
-    void run() {
+    void run() 
+    {
         windowing.ShowWindow();
         windowing.MaximizeWindow();
         isRenderingEnabled = true;
 
+        // Calculate deltaTime
+        Uint64 NOW = SDL_GetPerformanceCounter();
+        Uint64 LAST = 0;
+        double deltaTime = 0;
+
         while (isRunning) {
             processEvents();
+
+            LAST = NOW;
+            NOW = SDL_GetPerformanceCounter();
+            deltaTime = (double)((NOW - LAST)*1000 / (double)SDL_GetPerformanceFrequency() );
+
+            Update(deltaTime);
+            
             if (windowExtent.width > 0 && windowExtent.height > 0 && isRenderingEnabled) {
                 renderFrame();
             }
@@ -104,7 +117,9 @@ private:
         createCommandBuffers();
     }
 
-
+    void Update(double deltaTime) {
+        // Update logic here
+    }
 
     void selectPhysicalDevice() {
         auto devices = engine.resorces.instance->enumeratePhysicalDevices();
