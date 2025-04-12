@@ -15,6 +15,7 @@ void KitsuneEngine::Init()
     CreateInstance();
     CreateSurface();
     SelectPhysicalDevice();
+    CreateLogicalDevice();
 }
 
 void KitsuneEngine::ResetWindowExtent()
@@ -82,13 +83,61 @@ void KitsuneEngine::SelectPhysicalDevice()
     if (!resorces.physicalDevice) throw std::runtime_error("No suitable physical device found");
 }
 
+void KitsuneEngine::CreateLogicalDevice() 
+{
+    std::vector<vk::ExtensionProperties> availableExtensions = resorces.physicalDevice->enumerateDeviceExtensionProperties();
+    std::vector<const char*> requiredExtensions{ vk::KHRSwapchainExtensionName, vk::KHRSynchronization2ExtensionName };
+
+    if (!AreExtensionsSupported(requiredExtensions, availableExtensions)) {
+        throw std::runtime_error("Required device extensions are missing");
+    }
+
+    if (hasPortability) {
+        if (std::any_of(availableExtensions.begin(), availableExtensions.end(),
+            [](const auto& ext) { return strcmp(ext.extensionName, vk::KHRPortabilitySubsetExtensionName) == 0; })) {
+            requiredExtensions.push_back(vk::KHRPortabilitySubsetExtensionName);
+        }
+    }
+
+    std::set<uint32_t> uniqueFamilies = { *queueFamilyIndices.graphics, *queueFamilyIndices.present };
+    std::vector<vk::DeviceQueueCreateInfo> queueInfos;
+    float priority = 1.0f;
+    for (uint32_t family : uniqueFamilies) {
+        vk::DeviceQueueCreateInfo queueInfo{};
+        queueInfo.setQueueFamilyIndex(family)
+            .setQueueCount(1)
+            .setPQueuePriorities(&priority);
+        queueInfos.push_back(queueInfo);
+    }
+
+    vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT dynamicStateFeatures{};
+    dynamicStateFeatures.setExtendedDynamicState(true);
+
+    vk::PhysicalDeviceVulkan13Features vulkan13Features{};
+    vulkan13Features.setPNext(&dynamicStateFeatures)
+        .setSynchronization2(true)
+        .setDynamicRendering(true);
+
+    vk::PhysicalDeviceFeatures2 features{};
+    features.setPNext(&vulkan13Features);
+
+    vk::DeviceCreateInfo createInfo{};
+    createInfo.setQueueCreateInfoCount(static_cast<uint32_t>(queueInfos.size()))
+        .setPQueueCreateInfos(queueInfos.data())
+        .setEnabledExtensionCount(static_cast<uint32_t>(requiredExtensions.size()))
+        .setPpEnabledExtensionNames(requiredExtensions.data())
+        .setPNext(&features);
+
+    resorces.device.emplace(*resorces.physicalDevice, createInfo);
+    resorces.graphicsQueue.emplace(*resorces.device, *queueFamilyIndices.graphics, 0);
+    resorces.presentQueue.emplace(*resorces.device, *queueFamilyIndices.present, 0);
+}
+
 // Utility Methods
 std::vector<const char*> KitsuneEngine::GetRequiredInstanceExtensions(const std::vector<vk::ExtensionProperties>& available) {
     std::vector<const char*> extensions;
 
     windowing_.GetInstanceExtensions(extensions);
-
-
 
 
 #ifdef VKB_ENABLE_PORTABILITY
@@ -102,6 +151,8 @@ std::vector<const char*> KitsuneEngine::GetRequiredInstanceExtensions(const std:
 
     return extensions;
 }
+
+
 
 bool KitsuneEngine::AreExtensionsSupported(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available) const {
     for (const auto* req : required) {

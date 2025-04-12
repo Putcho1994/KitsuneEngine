@@ -24,6 +24,9 @@ struct VulkanResorces
 	std::optional <vk::raii::PipelineLayout> pipelineLayout{};
 	std::optional <vk::raii::Pipeline> graphicsPipeline{};
 	std::optional <vk::raii::CommandPool> commandPool{};
+
+	std::optional<vk::raii::Queue> graphicsQueue{};
+    std::optional<vk::raii::Queue> presentQueue{};
 };
 
 struct QueueFamilyIndices
@@ -51,6 +54,12 @@ public:
 
 	void ResetWindowExtent();
 
+	void WaitForIdle() const
+	{
+		if (resorces.device) {
+			resorces.device->waitIdle();
+		}
+	}
 
 private:
 	bool isRunning{ false };
@@ -67,7 +76,7 @@ private:
 	void CreateInstance();
 	void CreateSurface();
 	void SelectPhysicalDevice();
-
+	void CreateLogicalDevice();
 
 	QueueFamilyIndices FindQueueFamilies(const vk::raii::PhysicalDevice& device) const;
 };
