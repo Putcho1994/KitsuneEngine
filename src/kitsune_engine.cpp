@@ -1,4 +1,3 @@
-#pragma once
 #include <kitsune_engine.hpp>
 
 KitsuneEngine::KitsuneEngine(KitsuneWindowing& windowing) : windowing_(windowing) {}
